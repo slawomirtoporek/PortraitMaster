@@ -1,4 +1,5 @@
 const Photo = require('../models/photo.model');
+const Voter = require('../models/Voter.model');
 const htmlChecker = require('../utils/htmlChecker');
 const emailChecker = require('../utils/emailChecker');
 
@@ -44,16 +45,34 @@ exports.loadAll = async (req, res) => {
 
 exports.vote = async (req, res) => {
 
+  const { id } = req.params;
+
   try {
-    const photoToUpdate = await Photo.findOne({ _id: req.params.id });
-    if(!photoToUpdate) res.status(404).json({ message: 'Not found' });
-    else {
-      photoToUpdate.votes++;
-      photoToUpdate.save();
-      res.send({ message: 'OK' });
+    let voter = await Voter.findOne({ user: req.clientIp });
+    
+    if (!voter) {
+      voter = new Voter({ user: req.clientIp, votes: [id] });
+      voter.save();
+    } else {
+
+      if (!voter.votes.includes(id)){
+        voter.votes.push(id);
+        voter.save();
+
+        const photoToUpdate = await Photo.findOne({ _id: req.params.id });
+
+        if (!photoToUpdate) {
+          res.status(404).json({ message: 'Not found' });
+        } else {
+          photoToUpdate.votes++;
+          photoToUpdate.save();
+          res.send({ message: 'OK' });
+        }
+      } else {
+        throw new Error('User already voted for this photo.');
+      }
     }
   } catch(err) {
     res.status(500).json(err);
   }
-
 };
